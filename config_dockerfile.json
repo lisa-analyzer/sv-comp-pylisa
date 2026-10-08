@@ -1,0 +1,5 @@
+{
+    "path_to_sv_comp_benchmark_dir": "/app/svcomp-benchmark",
+    "path_to_lisa_instance": "\"pylisa/pylisa-0.1/lib/*\"",
+    "path_to_output_dir": "./output"
+}
