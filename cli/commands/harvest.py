@@ -1,23 +1,23 @@
 # Standard library imports
-import os
 import json
+import os
 from pathlib import Path
-from typing import List, Optional
 
 # Load vendored packages
 from vendor.package_loader import load_packages
+
 load_packages()
 
 # Third-party imports
-import yaml
 import rich
 import typer
+import yaml
 
 # Project-local imports
 from cli.models.config import Config
-from cli.utils.util import json_serializer
 from cli.models.task_definition.fields.property import Property
 from cli.models.task_definition.task_definition import TaskDefinition
+from cli.utils.util import json_serializer
 
 # CLI setup
 cli = typer.Typer()
@@ -27,30 +27,36 @@ config = Config.get()
 @cli.command()
 def harvest():
     """
-        Harvests task definitions (.yml files) and saves them in tasks.json
+    Harvests task definitions (.yml files) and saves them in tasks.json
     """
 
     if config.is_empty():
         typer.echo("Configuration is empty. Run [bold]setup[/bold] first!")
         raise typer.Exit()
 
-    rich.print("[yellow]Harvesting task definitions from SV-COMP benchmark directory...[/yellow]")
+    rich.print(
+        "[yellow]Harvesting task definitions from SV-COMP benchmark directory...[/yellow]"
+    )
 
     definitions = fetch_tasks()
     __save_tasks(definitions)
 
-def fetch_tasks(benchmark_dir_path_from_cli: Optional[Path] = None) -> list[TaskDefinition]:
+
+def fetch_tasks(
+    benchmark_dir_path_from_cli: Path | None = None,
+) -> list[TaskDefinition]:
     """
-        Main function to harvest task definitions. Left as public for other commands to use
+    Main function to harvest task definitions. Left as public for other commands to use
     """
     raw_task_files = __harvest_tasks(benchmark_dir_path_from_cli)
     definitions = __construct_task_definition(raw_task_files)
 
     return definitions
 
+
 def get_tasks() -> list[TaskDefinition]:
     """
-        Returns tasks they have been harvested and saved in tasks.json
+    Returns tasks they have been harvested and saved in tasks.json
     """
 
     tasks_file = config.path_to_output_dir / "tasks.json"
@@ -62,7 +68,7 @@ def get_tasks() -> list[TaskDefinition]:
 
 def get_task(file_name: str) -> TaskDefinition | None:
     """
-        Returns a task definition by a filename (e.g. "StringValueOf09.yml")
+    Returns a task definition by a filename (e.g. "StringValueOf09.yml")
     """
     tasks_file = config.path_to_output_dir / "tasks.json"
     with tasks_file.open(encoding="utf-8") as f:
@@ -75,13 +81,13 @@ def get_task(file_name: str) -> TaskDefinition | None:
     return None
 
 
-def __harvest_tasks(benchmark_dir_path_from_cli: Optional[Path] = None) -> list[str]:
+def __harvest_tasks(benchmark_dir_path_from_cli: Path | None = None) -> list[str]:
     paths_to_definition_files: list[str] = []
 
     if benchmark_dir_path_from_cli:
         config.path_to_sv_comp_benchmark_dir = benchmark_dir_path_from_cli
 
-    for root, dirs, files in os.walk(config.path_to_sv_comp_benchmark_dir / "java"):
+    for root, dirs, files in os.walk(config.path_to_sv_comp_benchmark_dir / "python"):
         for file in files:
             if file.endswith(".yml"):
                 paths_to_definition_files.append(os.path.join(root, file))
@@ -89,8 +95,10 @@ def __harvest_tasks(benchmark_dir_path_from_cli: Optional[Path] = None) -> list[
     return paths_to_definition_files
 
 
-def __construct_task_definition(paths_to_definition_files: list[str]) -> list[TaskDefinition]:
-    definitions: List[TaskDefinition] = []
+def __construct_task_definition(
+    paths_to_definition_files: list[str],
+) -> list[TaskDefinition]:
+    definitions: list[TaskDefinition] = []
 
     for path_str in paths_to_definition_files:
         path = Path(path_str)
@@ -108,27 +116,27 @@ def __construct_task_definition(paths_to_definition_files: list[str]) -> list[Ta
         input_files = ""
         for file in __filter_out_subdirs(task_data["input_files"]):
             input_file = (
-                config.path_to_sv_comp_benchmark_dir
-                / "java"
-                / path.parent
-                / file
+                config.path_to_sv_comp_benchmark_dir / "python" / path.parent / file
             )
             input_files = input_files + str(input_file) + " "
+        input_files = input_files.strip()
 
         properties = [
             Property(
                 property_file=prop["property_file"],
-                expected_verdict=prop["expected_verdict"]
+                expected_verdict=prop["expected_verdict"],
             )
             for prop in task_data.get("properties", [])
         ]
 
-        definitions.append(TaskDefinition(
-            file_name=path.name,
-            path_to_definition=path,
-            input_file=input_files,
-            properties=properties
-        ))
+        definitions.append(
+            TaskDefinition(
+                file_name=path.name,
+                path_to_definition=path,
+                input_file=input_files,
+                properties=properties,
+            )
+        )
 
     return definitions
 
@@ -147,6 +155,8 @@ def __filter_out_subdirs(paths) -> list[Path]:
     Given a list of Path objects, remove any that are subdirectories of another.
     """
 
+    if isinstance(paths, str):
+        paths = [paths]
     paths = sorted(map(Path, paths), key=lambda p: len(p.parts))
 
     result = []

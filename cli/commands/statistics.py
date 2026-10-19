@@ -21,34 +21,31 @@ from cli.models.config import Config
 from cli.models.lisa_report.lisa_report import LisaReport
 from cli.models.task_definition.task_definition import TaskDefinition
 from cli.utils.util import (
-    AssertClassification,
     RuntimeClassification,
-    classify_asserts,
-    classify_runtime,
+    classify_arithmetic,
+    classify_assertion_safety,
+    classify_data_lookup,
+    classify_dynamic_typing,
 )
 
 # CLI setup
 cli = typer.Typer()
 config = Config.get()
 
-ASSERTIONS_TRUE = "Assertions set to TRUE"
-ASSERTIONS_FALSE = "Assertions set to FALSE"
-RUNTIME_TRUE = "Runtime exceptions set to TRUE"
-RUNTIME_FALSE = "Runtime exceptions set to FALSE"
+ASSERTIONS_TRUE = "Assertions safety set to TRUE"
+ASSERTIONS_FALSE = "Assertions safety set to FALSE"
+ARITHMETIC_TRUE = "Arithmetic set to TRUE"
+ARITHMETIC_FALSE = "Arithmetic set to FALSE"
+LOOKUP_TRUE = "Data lookup set to TRUE"
+LOOKUP_FALSE = "Data lookup set to FALSE"
+TYPING_TRUE = "Dynamic typing set to TRUE"
+TYPING_FALSE = "Dynamic typing set to FALSE"
 
-DEFINITE_WARNING = "LiSA produced only DEFINITE HOLDS warnings"
 DEFINITE_NOT_WARNING = "LiSA produced only DEFINITE NOT holds warnings"
 POSSIBLE_NOT_WARNING = "LiSA produced only POSSIBLY NOT holds warnings"
 CONFLICT_NOT_WARNING = (
     "LiSA produced both DEFINITE and POSSIBLE 'does not hold' warnings"
 )
-CONFLICT_HOLDS_AND_NOT_WARNING = (
-    "LiSA produced both DEFINITE 'holds' and 'does not hold' warnings"
-)
-CONFLICT_HOLDS_AND_POSSIBLY_NOT_WARNING = (
-    "LiSA produced both DEFINITE 'holds' and POSSIBLE 'does not hold' warnings"
-)
-CONFLICT_ALL_WARNING = "LiSA produced both DEFINITE 'holds' and 'does not hold', and POSSIBLE 'does not hold' warnings"
 UNKNOWN_WARNING = "LiSA classification unknown"
 NO_WARNINGS = "LiSA produced no warnings"
 
@@ -63,7 +60,6 @@ def statistics():
     parsing_error_table = None
     frontend_error_table = None
     analysis_error_table = None
-    score_table = DataFrame()
     svcomp_scores = DataFrame()
     all_bottoms = []
     all_opens = []
@@ -154,17 +150,37 @@ def statistics():
 def __to_svcomp_table_entry(file_name, virdict, score):
     task: TaskDefinition = get_task(file_name)
     svcomp_data = []
-    if task.are_runtime_exceptions_expected() is not None:
+    if task.are_arithmetic_expected() is not None:
         svcomp_data.append(
             [
-                f"{file_name}|runtime|{task.are_runtime_exceptions_expected()}",
+                f"{file_name}|arithmetic|{task.are_arithmetic_expected()}",
                 virdict,
                 score,
             ]
         )
-    if task.are_assertions_expected() is not None:
+    if task.are_assertion_safety_expected() is not None:
         svcomp_data.append(
-            [f"{file_name}|assert|{task.are_assertions_expected()}", virdict, score]
+            [
+                f"{file_name}|assert|{task.are_assertion_safety_expected()}",
+                virdict,
+                score,
+            ]
+        )
+    if task.are_data_lookup_expected() is not None:
+        svcomp_data.append(
+            [
+                f"{file_name}|lookup|{task.are_data_lookup_expected()}",
+                virdict,
+                score,
+            ]
+        )
+    if task.are_dynamic_typing_expected() is not None:
+        svcomp_data.append(
+            [
+                f"{file_name}|typing|{task.are_dynamic_typing_expected()}",
+                virdict,
+                score,
+            ]
         )
     svcomp_iteration_df = DataFrame(
         svcomp_data, columns=["Test case", "Virdict", "Score"]
@@ -196,30 +212,72 @@ def __compute_score(results_dir: str, file_name: str) -> DataFrame:
     with open(os.path.join(results_dir, "report.json"), encoding="utf-8") as f:
         lisa_report = LisaReport(**json.load(f))
 
-    sv_runtime, due_runtime, virdict_runtime = __score_runtime_exceptions(
-        task, lisa_report
+    sv_arithmetic, due_arithmetic, virdict_arithmetic = __score_result(
+        task,
+        lisa_report,
+        task.are_arithmetic_expected(),
+        classify_arithmetic(lisa_report),
     )
-    sv_assert, due_assert, virdict_assert = __score_assertions(task, lisa_report)
+    sv_typing, due_typing, virdict_typing = __score_result(
+        task,
+        lisa_report,
+        task.are_dynamic_typing_expected(),
+        classify_dynamic_typing(lisa_report),
+    )
+    sv_lookup, due_lookup, virdict_lookup = __score_result(
+        task,
+        lisa_report,
+        task.are_data_lookup_expected(),
+        classify_data_lookup(lisa_report),
+    )
+    sv_assert, due_assert, virdict_assert = __score_result(
+        task,
+        lisa_report,
+        task.are_assertion_safety_expected(),
+        classify_assertion_safety(lisa_report),
+    )
 
     svcomp_data = []
-    if task.are_runtime_exceptions_expected() is not None:
+    if task.are_arithmetic_expected() is not None:
         svcomp_data.append(
             [
-                f"{file_name}|runtime|{task.are_runtime_exceptions_expected()}",
-                virdict_runtime,
-                sv_runtime,
-                "\n".join(due_runtime),
+                f"{file_name}|arithmetic|{task.are_arithmetic_expected()}",
+                virdict_arithmetic,
+                sv_arithmetic,
+                "\n".join(due_arithmetic),
                 lisa_report.count_bottom_notices(),
                 lisa_report.count_open_call_notices(),
             ]
         )
-    if task.are_assertions_expected() is not None:
+    if task.are_assertion_safety_expected() is not None:
         svcomp_data.append(
             [
-                f"{file_name}|assert|{task.are_assertions_expected()}",
+                f"{file_name}|assert|{task.are_assertion_safety_expected()}",
                 virdict_assert,
                 sv_assert,
                 "\n".join(due_assert),
+                lisa_report.count_bottom_notices(),
+                lisa_report.count_open_call_notices(),
+            ]
+        )
+    if task.are_data_lookup_expected() is not None:
+        svcomp_data.append(
+            [
+                f"{file_name}|lookup|{task.are_data_lookup_expected()}",
+                virdict_lookup,
+                sv_lookup,
+                "\n".join(due_lookup),
+                lisa_report.count_bottom_notices(),
+                lisa_report.count_open_call_notices(),
+            ]
+        )
+    if task.are_dynamic_typing_expected() is not None:
+        svcomp_data.append(
+            [
+                f"{file_name}|typing|{task.are_dynamic_typing_expected()}",
+                virdict_typing,
+                sv_typing,
+                "\n".join(due_typing),
                 lisa_report.count_bottom_notices(),
                 lisa_report.count_open_call_notices(),
             ]
@@ -244,14 +302,15 @@ def __compute_score(results_dir: str, file_name: str) -> DataFrame:
     )
 
 
-def __score_assertions(
-    task: TaskDefinition, lisa_report: LisaReport
-) -> tuple[int, list[str]]:
+def __score_result(
+    task: TaskDefinition,
+    lisa_report: LisaReport,
+    expected: bool,
+    classification: RuntimeClassification,
+) -> tuple[int, list[str], str]:
     sv_comp_score = 0
     due_to: list[str] = []
 
-    expected = task.are_assertions_expected()
-    classification = classify_asserts(lisa_report)
     virdict = classification.value[1]
     if expected:  # TRUE
         expected_res = ASSERTIONS_TRUE
@@ -264,61 +323,6 @@ def __score_assertions(
                 sv_comp_score = 0
     elif expected is False:  # FALSE
         expected_res = ASSERTIONS_FALSE
-        match classification.value[1]:
-            case "TRUE":
-                sv_comp_score = -32
-            case "FALSE":
-                sv_comp_score = 1
-            case "UNKNOWN":
-                sv_comp_score = 0
-    else:  # PROPERTY IS ABSENT
-        return 0, [], "UNKNOWN"
-
-    match classification:
-        case AssertClassification.NO_WARNINGS:
-            due_to.append(f"{expected_res}, and {NO_WARNINGS}")
-        case AssertClassification.ONLY_DEFINITE_HOLDS:
-            due_to.append(f"{expected_res}, and {DEFINITE_WARNING}")
-        case AssertClassification.ONLY_POSSIBLE_NOT_HOLDS:
-            due_to.append(f"{expected_res}, and {POSSIBLE_NOT_WARNING}")
-        case AssertClassification.ONLY_DEFINITE_NOT_HOLDS:
-            due_to.append(f"{expected_res}, and {DEFINITE_NOT_WARNING}")
-        case AssertClassification.CONFLICTING_NOT_HOLDS:
-            due_to.append(f"{expected_res}, and {CONFLICT_NOT_WARNING}")
-        case AssertClassification.CONFLICTING_HOLDS_AND_NOT_HOLDS:
-            due_to.append(f"{expected_res}, and {CONFLICT_HOLDS_AND_NOT_WARNING}")
-        case AssertClassification.CONFLICTING_HOLDS_AND_POSSIBLY_NOT_HOLDS:
-            due_to.append(
-                f"{expected_res}, and {CONFLICT_HOLDS_AND_POSSIBLY_NOT_WARNING}"
-            )
-        case AssertClassification.ALL:
-            due_to.append(f"{expected_res}, and {CONFLICT_ALL_WARNING}")
-        case AssertClassification.UNKNOWN:
-            due_to.append(f"{expected_res}, and {UNKNOWN_WARNING}")
-
-    return sv_comp_score, due_to, virdict
-
-
-def __score_runtime_exceptions(
-    task: TaskDefinition, lisa_report: LisaReport
-) -> tuple[int, list[str]]:
-    sv_comp_score = 0
-    due_to: list[str] = []
-
-    expected = task.are_runtime_exceptions_expected()
-    classification = classify_runtime(lisa_report)
-    virdict = classification.value[1]
-    if expected:  # TRUE
-        expected_res = RUNTIME_TRUE
-        match classification.value[1]:
-            case "TRUE":
-                sv_comp_score = 2
-            case "FALSE":
-                sv_comp_score = -16
-            case "UNKNOWN":
-                sv_comp_score = 0
-    elif expected is False:  # FALSE
-        expected_res = RUNTIME_FALSE
         match classification.value[1]:
             case "TRUE":
                 sv_comp_score = -32
@@ -397,29 +401,22 @@ def __save_summary(
 ):
     all_tasks = get_tasks()
     assert_tasks = 0
-    runtime_tasks = 0
+    typing_tasks = 0
+    lookup_tasks = 0
+    arithmetic_tasks = 0
     for task in all_tasks:
-        if task.are_assertions_expected() is not None:
+        if task.are_assertion_safety_expected() is not None:
             assert_tasks += 1
-        if task.are_runtime_exceptions_expected() is not None:
-            runtime_tasks += 1
+        if task.are_dynamic_typing_expected() is not None:
+            typing_tasks += 1
+        if task.are_data_lookup_expected() is not None:
+            lookup_tasks += 1
+        if task.are_arithmetic_expected() is not None:
+            arithmetic_tasks += 1
 
     total_passed = (scores["Score"] > 0).sum()
     total_zero = (scores["Score"] == 0).sum()
     total_failed = (scores["Score"] < 0).sum()
-
-    passed_runtime = (
-        scores.loc[scores["Test case"].str.contains(r"\|runtime\|", na=False), "Score"]
-        > 0
-    ).sum()
-    zero_runtime = (
-        scores.loc[scores["Test case"].str.contains(r"\|runtime\|", na=False), "Score"]
-        == 0
-    ).sum()
-    failed_runtime = (
-        scores.loc[scores["Test case"].str.contains(r"\|runtime\|", na=False), "Score"]
-        < 0
-    ).sum()
 
     passed_assert = (
         scores.loc[scores["Test case"].str.contains(r"\|assert\|", na=False), "Score"]
@@ -434,15 +431,71 @@ def __save_summary(
         < 0
     ).sum()
 
-    runtime_score = scores.loc[
-        scores["Test case"].str.contains(r"\|runtime\|", na=False), "Score"
-    ].sum()
+    passed_arithmetic = (
+        scores.loc[
+            scores["Test case"].str.contains(r"\|arithmetic\|", na=False), "Score"
+        ]
+        > 0
+    ).sum()
+    zero_arithmetic = (
+        scores.loc[
+            scores["Test case"].str.contains(r"\|arithmetic\|", na=False), "Score"
+        ]
+        == 0
+    ).sum()
+    failed_arithmetic = (
+        scores.loc[
+            scores["Test case"].str.contains(r"\|arithmetic\|", na=False), "Score"
+        ]
+        < 0
+    ).sum()
+
+    passed_lookup = (
+        scores.loc[scores["Test case"].str.contains(r"\|lookup\|", na=False), "Score"]
+        > 0
+    ).sum()
+    zero_lookup = (
+        scores.loc[scores["Test case"].str.contains(r"\|lookup\|", na=False), "Score"]
+        == 0
+    ).sum()
+    failed_lookup = (
+        scores.loc[scores["Test case"].str.contains(r"\|lookup\|", na=False), "Score"]
+        < 0
+    ).sum()
+
+    passed_typing = (
+        scores.loc[scores["Test case"].str.contains(r"\|typing\|", na=False), "Score"]
+        > 0
+    ).sum()
+    zero_typing = (
+        scores.loc[scores["Test case"].str.contains(r"\|typing\|", na=False), "Score"]
+        == 0
+    ).sum()
+    failed_typing = (
+        scores.loc[scores["Test case"].str.contains(r"\|typing\|", na=False), "Score"]
+        < 0
+    ).sum()
+
     assert_score = scores.loc[
         scores["Test case"].str.contains(r"\|assert\|", na=False), "Score"
     ].sum()
+    arithmetic_score = scores.loc[
+        scores["Test case"].str.contains(r"\|arithmetic\|", na=False), "Score"
+    ].sum()
+    lookup_score = scores.loc[
+        scores["Test case"].str.contains(r"\|lookup\|", na=False), "Score"
+    ].sum()
+    typing_score = scores.loc[
+        scores["Test case"].str.contains(r"\|typing\|", na=False), "Score"
+    ].sum()
     norm_score = round(
-        ((runtime_score / runtime_tasks) + (assert_score / assert_tasks))
-        * ((runtime_tasks + assert_tasks) / 2)
+        (
+            (assert_score / assert_tasks)
+            + (arithmetic_score / arithmetic_tasks)
+            + (lookup_score / lookup_tasks)
+            + (typing_score / typing_tasks)
+        )
+        * ((assert_tasks + arithmetic_tasks + lookup_tasks + typing_tasks) / 4)
     )
 
     count_bot = int(scores["Num Bottom"].sum())
@@ -451,17 +504,23 @@ def __save_summary(
     summary_lines = [
         f"Test files: [bold blue]{len(all_tasks)}[/bold blue]",
         f"Test files with assert task: [bold blue]{assert_tasks}[/bold blue]",
-        f"Test files with runtime exceptions task: [bold blue]{runtime_tasks}[/bold blue]",
-        f"Total tasks: [bold blue]{assert_tasks + runtime_tasks}[/bold blue]\n",
+        f"Test files with arithmetic task: [bold blue]{arithmetic_tasks}[/bold blue]",
+        f"Test files with lookup task: [bold blue]{lookup_tasks}[/bold blue]",
+        f"Test files with typing task: [bold blue]{typing_tasks}[/bold blue]",
+        f"Total tasks: [bold blue]{assert_tasks + arithmetic_tasks + lookup_tasks + typing_tasks}[/bold blue]\n",
         "[italic]Results[/italic]",
         f"Overall: [bold green]{total_passed} passed[/bold green] / [bold yellow]{total_zero} inconclusive[/bold yellow] / [bold red]{total_failed} failed[/bold red]",
-        f"Runtime: [bold green]{passed_runtime} passed[/bold green] / [bold yellow]{zero_runtime} inconclusive[/bold yellow] / [bold red]{failed_runtime} failed[/bold red]",
         f"Assert: [bold green]{passed_assert} passed[/bold green] / [bold yellow]{zero_assert} inconclusive[/bold yellow] / [bold red]{failed_assert} failed[/bold red]\n",
+        f"Arithmetic: [bold green]{passed_arithmetic} passed[/bold green] / [bold yellow]{zero_arithmetic} inconclusive[/bold yellow] / [bold red]{failed_arithmetic} failed[/bold red]\n",
+        f"Lookup: [bold green]{passed_lookup} passed[/bold green] / [bold yellow]{zero_lookup} inconclusive[/bold yellow] / [bold red]{failed_lookup} failed[/bold red]\n",
+        f"Typing: [bold green]{passed_typing} passed[/bold green] / [bold yellow]{zero_typing} inconclusive[/bold yellow] / [bold red]{failed_typing} failed[/bold red]\n",
         "[italic]Scores[/italic]",
         f"Absolute: [bold green]{scores['Score'].sum()}[/bold green]",
         f"Normalized: [bold green]{norm_score}[/bold green]",
-        f"Runtime: [bold blue]{runtime_score}[/bold blue]",
         f"Assert: [bold yellow]{assert_score}[/bold yellow]\n",
+        f"Arithmetic: [bold yellow]{arithmetic_score}[/bold yellow]\n",
+        f"Lookup: [bold yellow]{lookup_score}[/bold yellow]\n",
+        f"Typing: [bold yellow]{typing_score}[/bold yellow]\n",
         "[red bold]Errors[/red bold] (check corresponding .csv files)",
         f"Parsing: [bold red]{parsing_error_counter}[/bold red]",
         f"Frontend: [bold red]{frontend_error_counter}[/bold red]",

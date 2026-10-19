@@ -35,61 +35,139 @@ class LisaReport:
     def list_notices(self) -> list[str]:
         return [n.extract_notice() for n in self.notices]
 
-    # assert specific
+    # assertion safety specific
 
-    def list_assert_warnings(self) -> list[str]:
-        return [w.extract_warning() for w in self.warnings if w.is_assertion_warning()]
+    def list_assertion_safety_warnings(self) -> list[str]:
+        return [
+            w.extract_warning()
+            for w in self.warnings
+            if w.is_assertion_safety_warning()
+        ]
 
-    def has_assert_warnings(self) -> bool:
-        return len(self.list_assert_warnings()) > 0
+    def has_assertion_safety_warnings(self) -> bool:
+        return len(self.list_assertion_safety_warnings()) > 0
 
-    def has_only_definite_holds_assert_warning(self) -> bool:
+    def has_only_possible_assertion_safety_warnings(self) -> bool:
         return all(
-            "assertion holds" in warning for warning in self.list_assert_warnings()
+            warning.is_possible_warning()
+            for warning in self.list_assertion_safety_warnings()
         )
 
-    def has_definite_holds_assert_warning(self) -> bool:
+    def has_possible_assertion_safety_warning(self) -> bool:
         return any(
-            "assertion holds" in warning for warning in self.list_assert_warnings()
+            warning.is_possible_warning()
+            for warning in self.list_assertion_safety_warnings()
         )
 
-    def has_only_possibly_not_holds_assert_warning(self) -> bool:
-        return all("POSSIBLE" in warning for warning in self.list_assert_warnings())
-
-    def has_possibly_not_holds_assert_warning(self) -> bool:
-        return any("POSSIBLE" in warning for warning in self.list_assert_warnings())
-
-    def has_only_definite_not_holds_assert_warning(self) -> bool:
+    def has_only_definite_assertion_safety_warnings(self) -> bool:
         return all(
-            "assertion DOES NOT hold" in warning
-            for warning in self.list_assert_warnings()
+            not warning.is_possible_warning()
+            for warning in self.list_assertion_safety_warnings()
         )
 
-    def has_definite_not_holds_assert_warning(self) -> bool:
+    def has_definite_assertion_safety_warning(self) -> bool:
         return any(
-            "assertion DOES NOT hold" in warning
-            for warning in self.list_assert_warnings()
+            not warning.is_possible_warning()
+            for warning in self.list_assertion_safety_warnings()
         )
 
-    # runtime specific
+    # data lookup specific
 
-    def list_runtime_warnings(self) -> list[str]:
-        return [w.extract_warning() for w in self.warnings if w.is_runtime_warning()]
+    def list_data_lookup_warnings(self) -> list[str]:
+        return [
+            w.extract_warning() for w in self.warnings if w.is_data_lookup_warning()
+        ]
 
-    def has_runtime_warnings(self) -> bool:
-        return len(self.list_runtime_warnings()) > 0
+    def has_data_lookup_warnings(self) -> bool:
+        return len(self.list_data_lookup_warnings()) > 0
 
-    def has_only_possibly_not_holds_runtime_warning(self) -> bool:
-        return all("POSSIBLE" in warning for warning in self.list_runtime_warnings())
+    def has_only_possible_data_lookup_warnings(self) -> bool:
+        return all(
+            warning.is_possible_warning()
+            for warning in self.list_data_lookup_warnings()
+        )
 
-    def has_possibly_not_holds_runtime_warning(self) -> bool:
-        return any("POSSIBLE" in warning for warning in self.list_runtime_warnings())
+    def has_possible_data_lookup_warning(self) -> bool:
+        return any(
+            warning.is_possible_warning()
+            for warning in self.list_data_lookup_warnings()
+        )
 
-    def has_only_definite_not_holds_runtime_warning(self) -> bool:
-        return all("DEFINITE" in warning for warning in self.list_runtime_warnings())
+    def has_only_definite_data_lookup_warnings(self) -> bool:
+        return all(
+            not warning.is_possible_warning()
+            for warning in self.list_data_lookup_warnings()
+        )
 
-    def has_definite_not_holds_runtime_warning(self) -> bool:
-        return any("DEFINITE" in warning for warning in self.list_runtime_warnings())
+    def has_definite_data_lookup_warning(self) -> bool:
+        return any(
+            not warning.is_possible_warning()
+            for warning in self.list_data_lookup_warnings()
+        )
+
+    # arithmetic specific
+
+    def list_arithmetic_warnings(self) -> list[str]:
+        return [w.extract_warning() for w in self.warnings if w.is_arithmetic_warning()]
+
+    def has_arithmetic_warnings(self) -> bool:
+        return len(self.list_arithmetic_warnings()) > 0
+
+    def has_only_possible_arithmetic_warnings(self) -> bool:
+        return all(
+            warning.is_possible_warning() for warning in self.list_arithmetic_warnings()
+        )
+
+    def has_possible_arithmetic_warning(self) -> bool:
+        return any(
+            warning.is_possible_warning() for warning in self.list_arithmetic_warnings()
+        )
+
+    def has_only_definite_arithmetic_warnings(self) -> bool:
+        return all(
+            not warning.is_possible_warning()
+            for warning in self.list_arithmetic_warnings()
+        )
+
+    def has_definite_arithmetic_warning(self) -> bool:
+        return any(
+            not warning.is_possible_warning()
+            for warning in self.list_arithmetic_warnings()
+        )
+
+    # dynamic typing specific
+
+    def list_dynamic_typing_warnings(self) -> list[str]:
+        return [
+            w.extract_warning() for w in self.warnings if w.is_dynamic_typing_warning()
+        ]
+
+    def has_dynamic_typing_warnings(self) -> bool:
+        return len(self.list_dynamic_typing_warnings()) > 0
+
+    def has_only_possible_dynamic_typing_warnings(self) -> bool:
+        return all(
+            warning.is_possible_warning()
+            for warning in self.list_dynamic_typing_warnings()
+        )
+
+    def has_possible_dynamic_typing_warning(self) -> bool:
+        return any(
+            warning.is_possible_warning()
+            for warning in self.list_dynamic_typing_warnings()
+        )
+
+    def has_only_dynamic_typing_safety_warnings(self) -> bool:
+        return all(
+            not warning.is_possible_warning()
+            for warning in self.list_dynamic_typing_warnings()
+        )
+
+    def has_definite_dynamic_typing_warning(self) -> bool:
+        return any(
+            not warning.is_possible_warning()
+            for warning in self.list_dynamic_typing_warnings()
+        )
 
     # notice specific
 

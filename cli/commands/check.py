@@ -21,8 +21,10 @@ from cli.models.config import Config
 from cli.models.lisa_report.lisa_report import LisaReport
 from cli.models.property import Property
 from cli.utils.util import (
-    classify_asserts,
-    classify_runtime,
+    classify_arithmetic,
+    classify_assertion_safety,
+    classify_data_lookup,
+    classify_dynamic_typing,
 )
 
 # CLI setup
@@ -30,10 +32,10 @@ cli = typer.Typer()
 config = Config.get()
 
 # Constants
-PROPERTY_ASSERT_TEXT = "CHECK( init(Main.main()), LTL(G assert) )\n"
-PROPERTY_RUNTIME_TEXT = (
-    "CHECK(init(Main.main()), LTL(G ! uncaught(java.lang.RuntimeException)))\n"
-)
+PROPERTY_ASSERT_TEXT = "CHECK( init(main()), ! uncaught(AssertionError))"
+PROPERTY_ARITHMETIC_TEXT = "CHECK( init(main()), ! uncaught(ZeroDivisionError))\nCHECK( init(main()), ! uncaught(FloatingPointError))"
+PROPERTY_LOOKUP_TEXT = "CHECK( init(main()), ! uncaught(KeyError))\nCHECK( init(main()), ! uncaught(IndexError))"
+PROPERTY_TYPING_TEXT = "CHECK( init(main()), ! uncaught(TypeError))\nCHECK( init(main()), ! uncaught(AttributeError))"
 
 
 @cli.command()
@@ -78,15 +80,19 @@ def __resolve_property(property: str) -> Property:
     property_path = Path(property)
 
     if property_path.exists():
-        property_content = property_path.read_text()
+        property_content = property_path.read_text().strip()
 
         if property_content == PROPERTY_ASSERT_TEXT:
-            return Property.ASSERT
-        elif property_content == PROPERTY_RUNTIME_TEXT:
-            return Property.RUNTIME
+            return Property.ASSERTION_SAFETY
+        elif property_content == PROPERTY_ARITHMETIC_TEXT:
+            return Property.ARITHMETIC
+        elif property_content == PROPERTY_LOOKUP_TEXT:
+            return Property.DATA_LOOKUP
+        elif property_content == PROPERTY_TYPING_TEXT:
+            return Property.DYNAMIC_TYPING
         else:
             rich.print(
-                f"[bold red]Specified property is not supported:[/bold red] {property_content.strip()}"
+                f"[bold red]Specified property is not supported:[/bold red] {property_content}"
             )
             raise typer.Exit(code=1)
     else:
@@ -146,24 +152,18 @@ def __run_analysis(inputs: str) -> LisaReport | None:
 
 
 def __display_results(property: Property, lisa_report: LisaReport):
-    if property == Property.ASSERT:
-        __display_assert_results(lisa_report)
-    elif property == Property.RUNTIME:
-        __display_runtime_results(lisa_report)
+    if property == Property.ASSERTION_SAFETY:
+        __display(lisa_report, classify_assertion_safety)
+    elif property == Property.ARITHMETIC:
+        __display(lisa_report, classify_arithmetic)
+    elif property == Property.DATA_LOOKUP:
+        __display(lisa_report, classify_data_lookup)
+    elif property == Property.DYNAMIC_TYPING:
+        __display(lisa_report, classify_dynamic_typing)
 
 
-def __display_assert_results(lisa_report: LisaReport):
-    match classify_asserts(lisa_report).value[1]:
-        case "TRUE":
-            rich.print("[bold green]TRUE[/bold green]")
-        case "FALSE":
-            rich.print("[bold red]FALSE[/bold red]")
-        case "UNKNOWN":
-            rich.print("[bold orange3]UNKNOWN[/bold orange3]")
-
-
-def __display_runtime_results(lisa_report: LisaReport):
-    match classify_runtime(lisa_report).value[1]:
+def __display(lisa_report: LisaReport, classify_func):
+    match classify_func(lisa_report).value[1]:
         case "TRUE":
             rich.print("[bold green]TRUE[/bold green]")
         case "FALSE":
