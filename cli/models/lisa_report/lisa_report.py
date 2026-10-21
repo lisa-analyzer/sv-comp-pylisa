@@ -37,12 +37,8 @@ class LisaReport:
 
     # assertion safety specific
 
-    def list_assertion_safety_warnings(self) -> list[str]:
-        return [
-            w.extract_warning()
-            for w in self.warnings
-            if w.is_assertion_safety_warning()
-        ]
+    def list_assertion_safety_warnings(self) -> list[Warning]:
+        return [w for w in self.warnings if w.is_assertion_safety_warning()]
 
     def has_assertion_safety_warnings(self) -> bool:
         return len(self.list_assertion_safety_warnings()) > 0
@@ -73,10 +69,8 @@ class LisaReport:
 
     # data lookup specific
 
-    def list_data_lookup_warnings(self) -> list[str]:
-        return [
-            w.extract_warning() for w in self.warnings if w.is_data_lookup_warning()
-        ]
+    def list_data_lookup_warnings(self) -> list[Warning]:
+        return [w for w in self.warnings if w.is_data_lookup_warning()]
 
     def has_data_lookup_warnings(self) -> bool:
         return len(self.list_data_lookup_warnings()) > 0
@@ -107,8 +101,8 @@ class LisaReport:
 
     # arithmetic specific
 
-    def list_arithmetic_warnings(self) -> list[str]:
-        return [w.extract_warning() for w in self.warnings if w.is_arithmetic_warning()]
+    def list_arithmetic_warnings(self) -> list[Warning]:
+        return [w for w in self.warnings if w.is_arithmetic_warning()]
 
     def has_arithmetic_warnings(self) -> bool:
         return len(self.list_arithmetic_warnings()) > 0
@@ -137,10 +131,8 @@ class LisaReport:
 
     # dynamic typing specific
 
-    def list_dynamic_typing_warnings(self) -> list[str]:
-        return [
-            w.extract_warning() for w in self.warnings if w.is_dynamic_typing_warning()
-        ]
+    def list_dynamic_typing_warnings(self) -> list[Warning]:
+        return [w for w in self.warnings if w.is_dynamic_typing_warning()]
 
     def has_dynamic_typing_warnings(self) -> bool:
         return len(self.list_dynamic_typing_warnings()) > 0
@@ -157,7 +149,7 @@ class LisaReport:
             for warning in self.list_dynamic_typing_warnings()
         )
 
-    def has_only_dynamic_typing_safety_warnings(self) -> bool:
+    def has_only_definite_dynamic_typing_warnings(self) -> bool:
         return all(
             not warning.is_possible_warning()
             for warning in self.list_dynamic_typing_warnings()
