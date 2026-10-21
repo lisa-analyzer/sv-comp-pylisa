@@ -10,7 +10,7 @@ INPUT_1=(
     "$SCRIPT_DIR/test/01/main.py"
 )
 
-PROPERTY="$SCRIPT_DIR/test/valid-assert.prp"
+PROPERTY="$SCRIPT_DIR/test/assertion-safety.prp"
 
 # Run the command
 "$PYLISA" --version
