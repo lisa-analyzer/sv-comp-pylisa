@@ -57,6 +57,7 @@ def check(
     Check input files against a specified property
     """
 
+    __use_writable_output_directory()
     __clean_output_directory()
     __validate_input_paths(inputs)
     property_to_check = __resolve_property(property)
@@ -65,6 +66,16 @@ def check(
 
     if lisa_report:
         __display_results(property_to_check, lisa_report)
+
+
+def __use_writable_output_directory():
+    """
+    pylisa writes its results to outputs/ in the working directory, where BenchExec
+    collects the result files. The output directory of config.json is a path of the machine where the
+    archive was built, outside the working directory of a BenchExec run, and shared by all the runs.
+    """
+    config.path_to_output_dir = Path.cwd() / "outputs"
+    config.path_to_output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def __clean_output_directory():
@@ -113,26 +124,14 @@ def __validate_input_paths(inputs: str) -> list[Path]:
 
 def __run_analysis(inputs: str) -> LisaReport | None:
     command = get_lisa_cmd(config, inputs, None, 10)
-    (
-        f"java"
-        f" -Xmx10G"
-        f" -cp {config.path_to_lisa_instance}"
-        f" it.unive.pylisa.PyLiSA"
-        f" -s {inputs}"
-        f" -o {config.path_to_output_dir}"
-        f" -n ConstantPropagation"
-        f" -m Statistics"
-        f" -c Assert"
-        f" --no-html"
-        f" --l ERROR"
-    )
 
     proc = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
 
     try:
-        proc.wait()
+        # reads the output while waiting: a full pipe would block pylisa
+        _, errors = proc.communicate()
         if proc.returncode == 0:
             report_path = config.path_to_output_dir / "report.json"
             with open(report_path, encoding="utf-8") as f:
@@ -141,9 +140,8 @@ def __run_analysis(inputs: str) -> LisaReport | None:
             rich.print(
                 f"[bold red]LiSA analysis failed with exit code {proc.returncode}[/bold red]"
             )
-            if proc.stderr:
-                error_output = proc.stderr.read().strip()
-                rich.print(f"[red]Error: {error_output}[/red]")
+            if errors:
+                rich.print(f"[red]Error: {errors.strip()}[/red]")
         return None
     except Exception as e:
         rich.print(f"[bold red]An unexpected error occurred:[/bold red] {e}")
