@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 set -o pipefail
+
+if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "x86_64" ]]; then
+    echo "Error: pylisa must be built on Linux x86_64 (got $(uname -s) $(uname -m))"
+    exit 1
+fi
+
 PYLISA_BIN_DIR="pylisa-0.1"
 VENV_DIR=".sv-comp_venv"
 
