@@ -11,6 +11,9 @@ class Notice:
 
     message: str
 
+    def __init__(self, message, **_):
+        self.message = message
+
     def extract_notice(self) -> str:
         """
         Extracts the analysis notice (e.g. some event happened, etc.)
@@ -18,8 +21,10 @@ class Notice:
 
         if not self.message:
             return ""
+        # older versions of LiSA prefix the message with its location and its tag (e.g. [STATEMENT]), while newer
+        # ones write them in separate fields
         match = re.search(r"\[[A-Z]+\]\s*(.*)$", self.message)
-        return match.group(1) if match else ""
+        return match.group(1) if match else self.message
 
     def is_bottom_notice(self) -> bool:
         return "Analysis produced" in self.extract_notice()

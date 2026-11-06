@@ -190,3 +190,5 @@ To use PyLISA, unzip the pylisa.zip file and run the executable:
 ```bash
 > ./pylisa check --inputs "<input-file-1> <...> <input-file-N>" --property "<property-file.prp>"
 ```
+
+The last line of the output is the verdict: TRUE (the property holds), FALSE (the property is violated) or UNKNOWN. PyLiSA issues a warning for each exception of the property that its analysis cannot rule out, and then verifies the warnings, confirming (definite) or refuting them: the verdict is TRUE if there are no warnings or all of them are refuted, FALSE if one is definite, and UNKNOWN otherwise. By default, warnings are verified only through the results of the analysis (verifier `Reachability` of PyLiSA). With `analyse --combined-pdr`, PyLiSA uses the SV-COMP verifier instead (`Combined`), that falls back to model checking with z3: `--z3 <path>` (of both `check` and `analyse`) sets the z3 executable to use, otherwise the one in the PATH is used.

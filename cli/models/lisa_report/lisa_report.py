@@ -35,10 +35,13 @@ class LisaReport:
     def list_notices(self) -> list[str]:
         return [n.extract_notice() for n in self.notices]
 
+    # the warnings of each property do not include the ones refuted by the verification of warnings, that are
+    # false alarms: the property holds if all its warnings are refuted
+
     # assertion safety specific
 
     def list_assertion_safety_warnings(self) -> list[Warning]:
-        return [w for w in self.warnings if w.is_assertion_safety_warning()]
+        return [w for w in self.warnings if w.is_assertion_safety_warning() and not w.refuted]
 
     def has_assertion_safety_warnings(self) -> bool:
         return len(self.list_assertion_safety_warnings()) > 0
@@ -70,7 +73,7 @@ class LisaReport:
     # data lookup specific
 
     def list_data_lookup_warnings(self) -> list[Warning]:
-        return [w for w in self.warnings if w.is_data_lookup_warning()]
+        return [w for w in self.warnings if w.is_data_lookup_warning() and not w.refuted]
 
     def has_data_lookup_warnings(self) -> bool:
         return len(self.list_data_lookup_warnings()) > 0
@@ -102,7 +105,7 @@ class LisaReport:
     # arithmetic specific
 
     def list_arithmetic_warnings(self) -> list[Warning]:
-        return [w for w in self.warnings if w.is_arithmetic_warning()]
+        return [w for w in self.warnings if w.is_arithmetic_warning() and not w.refuted]
 
     def has_arithmetic_warnings(self) -> bool:
         return len(self.list_arithmetic_warnings()) > 0
@@ -132,7 +135,7 @@ class LisaReport:
     # dynamic typing specific
 
     def list_dynamic_typing_warnings(self) -> list[Warning]:
-        return [w for w in self.warnings if w.is_dynamic_typing_warning()]
+        return [w for w in self.warnings if w.is_dynamic_typing_warning() and not w.refuted]
 
     def has_dynamic_typing_warnings(self) -> bool:
         return len(self.list_dynamic_typing_warnings()) > 0

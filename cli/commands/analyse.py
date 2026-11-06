@@ -1,5 +1,6 @@
 # Standard library imports
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -42,6 +43,8 @@ class WorkerTask:
         total_tasks: int,
         task_idx: int,
         lock: Lock,
+        z3: str | None,
+        verifier: str,
     ):
         self.task = task
         self.start_time = start_time
@@ -51,6 +54,10 @@ class WorkerTask:
         self.total_tasks = total_tasks
         self.task_idx = task_idx
         self.lock = lock
+        # the z3 executable that pylisa uses to verify its warnings, or None for the one in the PATH
+        self.z3 = z3
+        # the verifier that pylisa uses to verify its warnings
+        self.verifier = verifier
 
 
 @cli.command()
@@ -87,6 +94,17 @@ def analyse(
         int | None,
         typer.Option("--parallelism", "-p", help="Number of parallel analyses to run"),
     ] = 1,
+    z3: Annotated[
+        str | None,
+        typer.Option("--z3", help="Path to the z3 executable that pylisa uses to verify its warnings "
+                                  "(by default, the one in the PATH)"),
+    ] = None,
+    combined_pdr: Annotated[
+        bool,
+        typer.Option("--combined-pdr", help="Let pylisa verify its warnings with the SV-COMP verifier, falling "
+                                            "back to model checking with z3 (by default, only through the results "
+                                            "of the analysis)"),
+    ] = False,
 ):
     """
     Sends collected tasks to the LiSA instance for analysis
@@ -121,7 +139,8 @@ def analyse(
         i = 1
         for task in tasks:
             tsk = WorkerTask(
-                task, start_time, timeout, max_memory, timed_out, total_tasks, i, lock
+                task, start_time, timeout, max_memory, timed_out, total_tasks, i, lock, z3,
+                "Combined" if combined_pdr else "Reachability"
             )
             i += 1
             executor.submit(__perform_analysis, tsk)
@@ -136,7 +155,8 @@ def analyse(
 
 def __perform_analysis(task: WorkerTask):
     command = get_lisa_cmd(
-        config, task.task.input_file, f"results/{task.task.file_name}", task.max_memory
+        config, task.task.input_file, f"results/{task.task.file_name}", task.max_memory,
+        z3=task.z3, verifier=task.verifier
     )
 
     rich.print(
@@ -175,10 +195,14 @@ def __perform_analysis(task: WorkerTask):
 
 
 def get_lisa_cmd(
-    config: Config, input_file: str, file_name: str, max_memory: int
+    config: Config, input_file: str, file_name: str, max_memory: int, z3: str | None = None,
+    verifier: str = "Reachability"
 ) -> str:
     """
-    Get the command to run LiSA from the configuration file
+    Get the command to run LiSA from the configuration file. With z3, pylisa uses that z3 executable to verify
+    its warnings (otherwise, the one in the PATH, if any). The verifier is the one pylisa uses to verify its
+    warnings: Reachability (through the results of the analysis) or Combined (the SV-COMP verifier, falling back
+    to model checking with z3).
     """
     out = (
         str(config.path_to_output_dir)
@@ -195,8 +219,9 @@ def get_lisa_cmd(
         f" -n ConstantPropagation"
         f" -m Statistics"
         f" -c Assert"
+        f" -t {verifier}"
         f" --no-html"
         f" --l ERROR"
         f" -d"
         f" -e"
-    )
+    ) + (f" --z3 {shlex.quote(z3)}" if z3 else "")

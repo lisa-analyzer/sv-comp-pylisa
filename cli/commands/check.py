@@ -52,6 +52,11 @@ def check(
         "--property",
         help="Provide path to the property file or property name to check",
     ),
+    z3: str | None = typer.Option(
+        None,
+        "--z3",
+        help="Path to the z3 executable that pylisa uses to verify its warnings (by default, the one in the PATH)",
+    ),
 ):
     """
     Check input files against a specified property
@@ -62,7 +67,7 @@ def check(
     __validate_input_paths(inputs)
     property_to_check = __resolve_property(property)
 
-    lisa_report = __run_analysis(inputs)
+    lisa_report = __run_analysis(inputs, z3)
 
     if lisa_report:
         __display_results(property_to_check, lisa_report)
@@ -122,8 +127,8 @@ def __validate_input_paths(inputs: str) -> list[Path]:
     return paths
 
 
-def __run_analysis(inputs: str) -> LisaReport | None:
-    command = get_lisa_cmd(config, inputs, None, 10)
+def __run_analysis(inputs: str, z3: str | None) -> LisaReport | None:
+    command = get_lisa_cmd(config, inputs, None, 10, z3=z3)
 
     proc = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
