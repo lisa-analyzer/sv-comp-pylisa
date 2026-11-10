@@ -96,14 +96,20 @@ def analyse(
     ] = 1,
     z3: Annotated[
         str | None,
-        typer.Option("--z3", help="Path to the z3 executable that pylisa uses to verify its warnings "
-                                  "(by default, the one in the PATH)"),
+        typer.Option(
+            "--z3",
+            help="Path to the z3 executable that pylisa uses to verify its warnings "
+            "(by default, the one in the PATH)",
+        ),
     ] = None,
     combined_pdr: Annotated[
         bool,
-        typer.Option("--combined-pdr", help="Let pylisa verify its warnings with the SV-COMP verifier, falling "
-                                            "back to model checking with z3 (by default, only through the results "
-                                            "of the analysis)"),
+        typer.Option(
+            "--combined-pdr",
+            help="Let pylisa verify its warnings with the SV-COMP verifier, falling "
+            "back to model checking with z3 (by default, only through the results "
+            "of the analysis)",
+        ),
     ] = False,
 ):
     """
@@ -139,8 +145,16 @@ def analyse(
         i = 1
         for task in tasks:
             tsk = WorkerTask(
-                task, start_time, timeout, max_memory, timed_out, total_tasks, i, lock, z3,
-                "Combined" if combined_pdr else "Reachability"
+                task,
+                start_time,
+                timeout,
+                max_memory,
+                timed_out,
+                total_tasks,
+                i,
+                lock,
+                z3,
+                "Combined" if combined_pdr else "Reachability",
             )
             i += 1
             executor.submit(__perform_analysis, tsk)
@@ -155,8 +169,12 @@ def analyse(
 
 def __perform_analysis(task: WorkerTask):
     command = get_lisa_cmd(
-        config, task.task.input_file, f"results/{task.task.file_name}", task.max_memory,
-        z3=task.z3, verifier=task.verifier
+        config,
+        task.task.input_file,
+        f"results/{task.task.file_name}",
+        task.max_memory,
+        z3=task.z3,
+        verifier=task.verifier,
     )
 
     rich.print(
@@ -195,14 +213,19 @@ def __perform_analysis(task: WorkerTask):
 
 
 def get_lisa_cmd(
-    config: Config, input_file: str, file_name: str, max_memory: int, z3: str | None = None,
-    verifier: str = "Reachability"
+    config: Config,
+    input_file: str,
+    file_name: str,
+    max_memory: int,
+    z3: str | None = None,
+    verifier: str = "Reachability",
+    log_level: str = "ERROR",
 ) -> str:
     """
     Get the command to run LiSA from the configuration file. With z3, pylisa uses that z3 executable to verify
     its warnings (otherwise, the one in the PATH, if any). The verifier is the one pylisa uses to verify its
     warnings: Reachability (through the results of the analysis) or Combined (the SV-COMP verifier, falling back
-    to model checking with z3).
+    to model checking with z3). The log level is the one of the logs that pylisa prints (e.g. ERROR or INFO).
     """
     out = (
         str(config.path_to_output_dir)
@@ -221,7 +244,7 @@ def get_lisa_cmd(
         f" -c Assert"
         f" -t {verifier}"
         f" --no-html"
-        f" --l ERROR"
+        f" -l {log_level}"
         f" -d"
         f" -e"
     ) + (f" --z3 {shlex.quote(z3)}" if z3 else "")
