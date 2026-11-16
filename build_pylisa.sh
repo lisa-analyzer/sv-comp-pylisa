@@ -9,6 +9,13 @@ fi
 
 PYLISA_BIN_DIR="pylisa-0.1"
 VENV_DIR=".sv-comp_venv"
+# the z3 release shipped with the archive, that pylisa uses to verify its warnings: the same as in the GitHub
+# actions of lisa (.github/actions/setup-z3/action.yml) and in build_jlisa.sh, to be kept in sync with them
+Z3_VERSION="4.16.0"
+Z3_GLIBC="2.39"
+Z3_SHA256="7288c49a5bd6dbafd7b0b0d1f65956b91672da24b08f09242919af159be3418e"
+# where z3 is extracted (its executable, z3/z3, and its license), as `pylisa check` looks for it
+Z3_DIR="z3"
 
 usage() {
     echo "Usage: $0 --pylisa-dir PATH_TO_PYLISA"
@@ -78,6 +85,25 @@ if [ -z "$PYLISA_ZIP" ]; then
     exit 1
 fi
 unzip -o "$PYLISA_ZIP" -d "$SV_COMP_DIR/"
+
+Z3_NAME="z3-$Z3_VERSION-x64-glibc-$Z3_GLIBC"
+if [ -x "$SV_COMP_DIR/$Z3_DIR/z3" ] && [ "$(cat "$SV_COMP_DIR/$Z3_DIR/VERSION" 2>/dev/null)" = "$Z3_NAME" ]; then
+    echo "z3 $Z3_VERSION already downloaded in $SV_COMP_DIR/$Z3_DIR"
+else
+    echo "Downloading z3 $Z3_VERSION..."
+    Z3_TMP="$(mktemp -d)"
+    curl --silent --show-error --fail -L -o "$Z3_TMP/z3.zip" \
+        "https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_NAME.zip"
+    echo "$Z3_SHA256  $Z3_TMP/z3.zip" | sha256sum --check
+    unzip -q "$Z3_TMP/z3.zip" "$Z3_NAME/bin/z3" "$Z3_NAME/LICENSE.txt" -d "$Z3_TMP"
+    rm -rf "$SV_COMP_DIR/$Z3_DIR"
+    mkdir -p "$SV_COMP_DIR/$Z3_DIR"
+    mv "$Z3_TMP/$Z3_NAME/bin/z3" "$Z3_TMP/$Z3_NAME/LICENSE.txt" "$SV_COMP_DIR/$Z3_DIR/"
+    echo "$Z3_NAME" > "$SV_COMP_DIR/$Z3_DIR/VERSION"
+    rm -rf "$Z3_TMP"
+fi
+chmod +x "$SV_COMP_DIR/$Z3_DIR/z3"
+"$SV_COMP_DIR/$Z3_DIR/z3" --version
 
 PYLISA_DIR_UNZIPPED="$PYLISA_BIN_DIR"
 CONFIG_JSON="$SV_COMP_DIR/config.json"
@@ -153,6 +179,10 @@ cp -r "$DIST_TEMPLATE/." "$PYLISA_FOLDER/"
 
 cp "$PYLISA_EXEC" "$PYLISA_FOLDER/"
 chmod +x "$PYLISA_FOLDER/$(basename "$PYLISA_EXEC")"
+
+# z3, next to the executable, where `pylisa check` looks for it
+cp -r "$SV_COMP_DIR/$Z3_DIR" "$PYLISA_FOLDER/$Z3_DIR"
+chmod +x "$PYLISA_FOLDER/$Z3_DIR/z3"
 chmod +x "$PYLISA_FOLDER/smoketest.sh"
 
 echo "Creating zip file $ZIP_FILE..."

@@ -12,6 +12,9 @@ INPUT_1=(
 
 PROPERTY="$SCRIPT_DIR/test/assertion-safety.prp"
 
+# the z3 executable used to verify the warnings, shipped with the archive
+"$SCRIPT_DIR/z3/z3" --version
+
 # Run the command
 "$PYLISA" --version
 "$PYLISA" check --inputs "${INPUT_1[@]}" --property "$PROPERTY"

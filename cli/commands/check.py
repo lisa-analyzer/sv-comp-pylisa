@@ -21,6 +21,7 @@ from cli.models.config import Config
 from cli.models.lisa_report.lisa_report import LisaReport
 from cli.models.property import Property
 from cli.utils.util import (
+    bundled_z3,
     classify_arithmetic,
     classify_assertion_safety,
     classify_data_lookup,
@@ -36,6 +37,10 @@ PROPERTY_ASSERT_TEXT = "CHECK( init(main()), ! uncaught(AssertionError))"
 PROPERTY_ARITHMETIC_TEXT = "CHECK( init(main()), ! uncaught(ZeroDivisionError))\nCHECK( init(main()), ! uncaught(FloatingPointError))"
 PROPERTY_LOOKUP_TEXT = "CHECK( init(main()), ! uncaught(KeyError))\nCHECK( init(main()), ! uncaught(IndexError))"
 PROPERTY_TYPING_TEXT = "CHECK( init(main()), ! uncaught(TypeError))\nCHECK( init(main()), ! uncaught(AttributeError))"
+
+# The time limit of pylisa, in seconds, when not given: SV-COMP limits the CPU time of a run to 900 seconds, that
+# also the threads of the virtual machine and z3 consume, so pylisa must end well before
+TIME_LIMIT = 600
 
 
 @cli.command()
@@ -55,7 +60,14 @@ def check(
     z3: str | None = typer.Option(
         None,
         "--z3",
-        help="Path to the z3 executable that pylisa uses to verify its warnings (by default, the one in the PATH)",
+        help="Path to the z3 executable that pylisa uses to verify its warnings (by default, the one shipped "
+        "with the archive, if any, or the one in the PATH)",
+    ),
+    time_limit: int = typer.Option(
+        TIME_LIMIT,
+        "--time-limit",
+        help="Time limit of pylisa, in seconds: the verification of its warnings ends in time to write its "
+        "results, and the warnings not verified by then stay possible",
     ),
 ):
     """
@@ -67,7 +79,7 @@ def check(
     __validate_input_paths(inputs)
     property_to_check = __resolve_property(property)
 
-    lisa_report = __run_analysis(inputs, z3)
+    lisa_report = __run_analysis(inputs, z3 or bundled_z3(), time_limit)
 
     if lisa_report:
         __display_results(property_to_check, lisa_report)
@@ -127,8 +139,10 @@ def __validate_input_paths(inputs: str) -> list[Path]:
     return paths
 
 
-def __run_analysis(inputs: str, z3: str | None) -> LisaReport | None:
-    command = get_lisa_cmd(config, inputs, None, 10, z3=z3, log_level="INFO")
+def __run_analysis(inputs: str, z3: str | None, time_limit: int | None) -> LisaReport | None:
+    # the warnings are verified with the SV-COMP verifier, falling back to model checking with z3
+    command = get_lisa_cmd(config, inputs, None, 10, z3=z3, verifier="Combined", log_level="INFO",
+                           time_limit=time_limit)
 
     try:
         # pylisa writes to the stdout and stderr of the wrapper, so that whoever captures them also sees its

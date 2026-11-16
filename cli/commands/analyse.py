@@ -26,6 +26,7 @@ from cli.commands.harvest import fetch_tasks, get_tasks
 # Project-local imports
 from cli.models.config import Config
 from cli.models.task_definition.task_definition import TaskDefinition
+from cli.utils.util import bundled_z3
 
 # CLI setup
 cli = typer.Typer()
@@ -99,18 +100,18 @@ def analyse(
         typer.Option(
             "--z3",
             help="Path to the z3 executable that pylisa uses to verify its warnings "
-            "(by default, the one in the PATH)",
+            "(by default, the one shipped with the archive, if any, or the one in the PATH)",
         ),
     ] = None,
     combined_pdr: Annotated[
         bool,
         typer.Option(
-            "--combined-pdr",
+            "--combined-pdr/--no-combined-pdr",
             help="Let pylisa verify its warnings with the SV-COMP verifier, falling "
-            "back to model checking with z3 (by default, only through the results "
-            "of the analysis)",
+            "back to model checking with z3 (with --no-combined-pdr, only through the "
+            "results of the analysis)",
         ),
-    ] = False,
+    ] = True,
 ):
     """
     Sends collected tasks to the LiSA instance for analysis
@@ -153,7 +154,7 @@ def analyse(
                 total_tasks,
                 i,
                 lock,
-                z3,
+                z3 or bundled_z3(),
                 "Combined" if combined_pdr else "Reachability",
             )
             i += 1
@@ -175,6 +176,7 @@ def __perform_analysis(task: WorkerTask):
         task.max_memory,
         z3=task.z3,
         verifier=task.verifier,
+        time_limit=task.timeout,
     )
 
     rich.print(
@@ -220,12 +222,15 @@ def get_lisa_cmd(
     z3: str | None = None,
     verifier: str = "Reachability",
     log_level: str = "ERROR",
+    time_limit: int | None = None,
 ) -> str:
     """
     Get the command to run LiSA from the configuration file. With z3, pylisa uses that z3 executable to verify
     its warnings (otherwise, the one in the PATH, if any). The verifier is the one pylisa uses to verify its
     warnings: Reachability (through the results of the analysis) or Combined (the SV-COMP verifier, falling back
     to model checking with z3). The log level is the one of the logs that pylisa prints (e.g. ERROR or INFO).
+    With time_limit (in seconds), pylisa ends the verification of its warnings in time to write its results
+    within that time (counting from its start), and the warnings not verified by then stay possible.
     """
     out = (
         str(config.path_to_output_dir)
@@ -247,4 +252,5 @@ def get_lisa_cmd(
         f" -l {log_level}"
         f" -d"
         f" -e"
-    ) + (f" --z3 {shlex.quote(z3)}" if z3 else "")
+    ) + (f" --z3 {shlex.quote(z3)}" if z3 else "") + (
+        f" --time-limit {time_limit}" if time_limit else "")

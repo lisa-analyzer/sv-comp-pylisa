@@ -37,11 +37,10 @@ class Warning:
 
     def is_possible_warning(self) -> bool:
         """
-        Whether the warning is possible: neither the checker nor the verification of warnings confirms it
+        Whether the warning is possible: the verification of warnings did not confirm it (a definite warning is
+        confirmed, a refuted one is a false alarm, and any other one is possible, whatever its message says)
         """
-        if self.definite:
-            return False
-        return "possible" in self.extract_warning() or "might" in self.extract_warning()
+        return not self.definite
 
     def is_assertion_safety_warning(self) -> bool:
         return "ASSERTIONS" in self.extract_warning()

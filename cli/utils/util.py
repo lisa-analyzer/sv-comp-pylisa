@@ -45,6 +45,20 @@ def resource_path(relative_path: str) -> Path:
     return base_path / relative_path
 
 
+# The folder with the z3 executable that build_pylisa.sh downloads and ships next to the pylisa executable
+Z3_DIR = "z3"
+
+
+def bundled_z3() -> str | None:
+    """
+    The path to the z3 executable shipped with the archive (z3/z3, next to the pylisa executable, or in the
+    project folder when running from the sources), or None if there is none.
+    """
+    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else resource_path(".")
+    z3 = base / Z3_DIR / "z3"
+    return str(z3.absolute()) if z3.is_file() else None
+
+
 def get_meta_info(field: str):
     """
     Get field value from a pyproject.toml

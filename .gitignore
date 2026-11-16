@@ -27,3 +27,6 @@ comparison.csv
 /pylisa.zip
 /tmp_test_*
 /pylisa.spec
+
+# z3, downloaded by build_pylisa.sh
+/z3
